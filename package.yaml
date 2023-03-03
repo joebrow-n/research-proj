@@ -23,6 +23,11 @@ dependencies:
 - base >= 4.7 && < 5
 - yaml
 - bytestring
+- unordered-containers
+- aeson
+- aeson-pretty
+- vector
+- text
 
 ghc-options:
 - -Wall
@@ -50,6 +55,11 @@ executables:
     - haskellCode
     - yaml
     - bytestring
+    - unordered-containers
+    - aeson
+    - aeson-pretty
+    - vector
+    - text
 
 tests:
   haskellCode-test:
