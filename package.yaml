@@ -29,6 +29,7 @@ dependencies:
 - vector
 - text
 - containers
+- scientific
 
 ghc-options:
 - -Wall
@@ -62,6 +63,7 @@ executables:
     - vector
     - text
     - containers
+    - scientific
 
 tests:
   haskellCode-test:

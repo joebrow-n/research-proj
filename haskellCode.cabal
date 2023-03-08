@@ -37,6 +37,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , scientific
     , text
     , unordered-containers
     , vector
@@ -57,6 +58,7 @@ executable haskellCode-exe
     , bytestring
     , containers
     , haskellCode
+    , scientific
     , text
     , unordered-containers
     , vector
@@ -78,6 +80,7 @@ test-suite haskellCode-test
     , bytestring
     , containers
     , haskellCode
+    , scientific
     , text
     , unordered-containers
     , vector
