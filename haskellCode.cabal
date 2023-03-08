@@ -36,6 +36,7 @@ library
     , aeson-pretty
     , base >=4.7 && <5
     , bytestring
+    , containers
     , text
     , unordered-containers
     , vector
@@ -54,6 +55,7 @@ executable haskellCode-exe
     , aeson-pretty
     , base >=4.7 && <5
     , bytestring
+    , containers
     , haskellCode
     , text
     , unordered-containers
@@ -74,6 +76,7 @@ test-suite haskellCode-test
     , aeson-pretty
     , base >=4.7 && <5
     , bytestring
+    , containers
     , haskellCode
     , text
     , unordered-containers

@@ -11,6 +11,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Text
 import qualified Data.Aeson.Types as AT
+import Data.Map.Strict
 
 main :: IO ()
 main = do
@@ -21,31 +22,24 @@ main = do
             print $ a -- [(Key, Value)]
             putStrLn " "
             case a of
-                Object obj -> print $ typeOf (Data.Aeson.KeyMap.toList obj) -- This right here, this is the key to it all
+                Object obj -> do
+                    print $ Data.List.map (\(k, v) -> (show k, v)) $ Data.Map.Strict.toList $ Data.Aeson.KeyMap.toMap obj -- Converts Object data type to List
+                    print $ typeOf (Data.Map.Strict.toList $ Data.Aeson.KeyMap.toMap obj)
         Nothing -> putStrLn "Error"
     putStrLn " "
 
 -- data MyValue
---   = MyObject (HM.HashMap String MyValue)
---   | MyArray (V.Vector MyValue)
+--   = MyObject [(String, Value)]
+--   | MyArray [MyValue]
 --   | MyString String
---   | MyNumber Double
+--   | MyNumber Scientific
 --   | MyBool Bool
 --   | MyNull
---   deriving (Show)
 
 -- toMyValue :: Value -> MyValue
--- toMyValue (Object obj) = MyObject $ HM.fromList $ Data.List.map (\(k, v) -> (k, toMyValue v)) $ HM.toList obj
--- toMyValue (Array arr) = MyArray $ V.fromList $ Data.List.map toMyValue $ V.toList arr
--- toMyValue (String str) = MyString (Data.Text.unpack str)
--- toMyValue (Number num) = MyNumber $ realToFrac num
+-- toMyValue (Object obj) = MyObject $ Data.Aeson.KeyMap.map (\(k, v) -> (unpack k, v)) $ Data.Aeson.KeyMap.toList obj
+-- toMyValue (Array arr) = MyArray $ map toMyValue $ V.toList arr
+-- toMyValue (String str) = MyString $ unpack str
+-- toMyValue (Number num) = MyNumber num
 -- toMyValue (Bool bool) = MyBool bool
 -- toMyValue Null = MyNull
-
--- listToPrint :: Value -> toList
--- listToPrint (Object) = toList Object
-
--- myObjectList :: [(Text, Value)]
--- myObjectList = case myObject of
---   Object obj -> print $ HM.toList obj
---   _ -> []

@@ -28,6 +28,7 @@ dependencies:
 - aeson-pretty
 - vector
 - text
+- containers
 
 ghc-options:
 - -Wall
@@ -60,6 +61,7 @@ executables:
     - aeson-pretty
     - vector
     - text
+    - containers
 
 tests:
   haskellCode-test:
