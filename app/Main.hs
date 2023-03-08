@@ -22,9 +22,14 @@ main = do
             putStrLn " "
             putStrLn "Custom Data Type:"
             print $ toMyValue a
+            putStrLn " "
+            checkType (toMyValue a)
         Nothing -> putStrLn "Error"
     putStrLn " "
 
+-- Custom Data Type which is used to reprsent the Data.Aeson "Value"
+-- Data Type, but instead of using custom constructors, uses the std.
+-- Haskell constructors
 data MyValue
   = MyObject [(String, MyValue)]
   | MyArray [MyValue]
@@ -34,6 +39,7 @@ data MyValue
   | MyNull
   deriving (Show)
 
+-- Converts Value Data Type to custom MyValue Data Type
 toMyValue :: Value -> MyValue
 toMyValue (Object obj) = MyObject $ L.map (\(k, v) -> (show k, toMyValue v)) $ MS.toList $ AKM.toMap obj
 toMyValue (Array arr) = MyArray $ L.map (\k -> toMyValue k) $ V.toList arr
@@ -41,3 +47,10 @@ toMyValue (String str) = MyString $ unpack str
 -- toMyValue (Number num) = MyNumber num
 toMyValue (Bool bool) = MyBool bool
 toMyValue Null = MyNull
+
+checkType :: MyValue -> IO ()
+checkType (MyObject obj) = case lookup "type" (L.map (\(k, v) -> (Prelude.drop 1 . Prelude.init $ k, v)) obj) of
+    Just (MyString "requirement") -> putStrLn "Item Type is Requirement"
+    Just x -> putStrLn "unrecognised item type"
+    Nothing -> putStrLn "Error"
+checkType _ = putStrLn "Error: not an object"
