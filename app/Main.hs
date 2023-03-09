@@ -3,10 +3,9 @@ module Main (main) where
 {-# LANGUAGE OverloadedStrings #-}
 
 import Data.Text
-import Data.Typeable
+-- import Data.Typeable
 import Data.Yaml as Y
 import System.Environment
-import System.Directory
 
 import qualified Data.Aeson.KeyMap as AKM
 import qualified Data.ByteString.Char8 as BS
@@ -17,6 +16,7 @@ import qualified Data.Vector as V
 
 main :: IO ()
 main = do
+    -- try with event-recieve yaml
     -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\req\send.yml"
     -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\if\event-07.yml"
     args <- getArgs
@@ -32,6 +32,8 @@ main = do
             print $ toMyValue a
             putStrLn " "
             checkType (toMyValue a)
+            putStrLn " "
+            print $ processMyVal (toMyValue a)
         Nothing -> putStrLn "Error"
     putStrLn " "
 
@@ -79,3 +81,25 @@ checkType _ = putStrLn "Error: not an object"
 -- been processed with the "show" function
 sanitiseString :: String -> String
 sanitiseString = Prelude.drop 1 . Prelude.init
+
+-- prettyPrints the "myValue" data type
+-- Need to look in myValue and check the type of the value
+pPrintMyVal :: [(String, MyValue)] -> String
+pPrintMyVal (x:xs) = show (fst x) ++ (processMyVal (snd x)) ++ pPrintMyVal xs
+pPrintMyVal (x:[]) = show (fst x) ++ (processMyVal (snd x))
+pPrintMyVal _ = "Error printing object"
+
+processMyVal :: MyValue -> String
+processMyVal (MyObject obj) = pPrintMyVal obj
+processMyVal (MyArray arr) = traverseMyArray arr
+processMyVal (MyString str) = str
+processMyVal (MyNumber num) = show num
+processMyVal (MyBool bool) = show bool
+processMyVal (MyNull) = "null"
+processMyVal _ = "Error processing MyValue"
+
+traverseMyArray :: [MyValue] -> String
+traverseMyArray (x:xs) = processMyVal x ++ traverseMyArray xs
+traverseMyArray (x:[]) = processMyVal x
+traverseMyArray _ = "Error with Array"
+
