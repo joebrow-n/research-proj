@@ -30,6 +30,7 @@ dependencies:
 - text
 - containers
 - scientific
+- directory
 
 ghc-options:
 - -Wall
@@ -64,6 +65,7 @@ executables:
     - text
     - containers
     - scientific
+    - directory
 
 tests:
   haskellCode-test:

@@ -5,6 +5,9 @@ module Main (main) where
 import Data.Text
 import Data.Typeable
 import Data.Yaml as Y
+import System.Environment
+import System.Directory
+
 import qualified Data.Aeson.KeyMap as AKM
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List as L
@@ -14,7 +17,11 @@ import qualified Data.Vector as V
 
 main :: IO ()
 main = do
-    content <- BS.readFile "C:/Users/brown/OneDrive/Desktop/Research Project/haskellCode/app/example.yaml"
+    -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\req\send.yml"
+    -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\if\event-07.yml"
+    args <- getArgs
+    let fileName = Prelude.head args
+    content <- BS.readFile fileName
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
@@ -53,6 +60,17 @@ toMyValue Null = MyNull
 checkType :: MyValue -> IO ()
 checkType (MyObject obj) = case lookup "type" obj of
     Just (MyString "requirement") -> putStrLn "Item Type is Requirement"
+    Just (MyString "build") -> putStrLn "Item Type is Build"
+    Just (MyString "constraint") -> putStrLn "Item Type is Constraint"
+    Just (MyString "glossary") -> putStrLn "Item Type is Glossary"
+    Just (MyString "interface") -> putStrLn "Item Type is Interface"
+    Just (MyString "requirment-validation") -> putStrLn "Item Type is Requirment Validation"
+    Just (MyString "runtime-measurement-test") -> putStrLn "Item Type is Runtime Measurement Test"
+    Just (MyString "specification") -> putStrLn "Item Type is Specification"
+    Just (MyString "test-case") -> putStrLn "Item Type is Test Case"
+    Just (MyString "test-platform") -> putStrLn "Item Type is Test Platform"
+    Just (MyString "test-procedure") -> putStrLn "Item Type is Test Procedure"
+    Just (MyString "test-suite") -> putStrLn "Item Type is Test Suite"
     Just x -> putStrLn "unrecognised item type"
     Nothing -> putStrLn "Error"
 checkType _ = putStrLn "Error: not an object"
