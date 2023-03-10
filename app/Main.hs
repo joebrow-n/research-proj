@@ -33,7 +33,7 @@ main = do
             putStrLn " "
             checkType (toMyValue a)
             putStrLn " "
-            print $ processMyVal (toMyValue a)
+            putStrLn $ prettyPrint (toMyValue a)
         Nothing -> putStrLn "Error"
     putStrLn " "
 
@@ -82,24 +82,16 @@ checkType _ = putStrLn "Error: not an object"
 sanitiseString :: String -> String
 sanitiseString = Prelude.drop 1 . Prelude.init
 
--- prettyPrints the "myValue" data type
--- Need to look in myValue and check the type of the value
-pPrintMyVal :: [(String, MyValue)] -> String
-pPrintMyVal (x:xs) = show (fst x) ++ (processMyVal (snd x)) ++ pPrintMyVal xs
-pPrintMyVal (x:[]) = show (fst x) ++ (processMyVal (snd x))
-pPrintMyVal _ = "Error printing object"
-
-processMyVal :: MyValue -> String
-processMyVal (MyObject obj) = pPrintMyVal obj
-processMyVal (MyArray arr) = traverseMyArray arr
-processMyVal (MyString str) = str
-processMyVal (MyNumber num) = show num
-processMyVal (MyBool bool) = show bool
-processMyVal (MyNull) = "null"
-processMyVal _ = "Error processing MyValue"
-
-traverseMyArray :: [MyValue] -> String
-traverseMyArray (x:xs) = processMyVal x ++ traverseMyArray xs
-traverseMyArray (x:[]) = processMyVal x
-traverseMyArray _ = "Error with Array"
-
+prettyPrint :: MyValue -> String
+prettyPrint (MyObject kvs) =
+  let indent = Prelude.replicate 2 ' '
+  in "{\n" ++ Prelude.concatMap (\(k, v) -> indent ++ k ++ ": " ++ prettyPrint' v ++ "\n") kvs ++ "}"
+  where prettyPrint' v = Prelude.unlines $ Prelude.map (Prelude.replicate 2 ' ' ++) $ Prelude.lines $ prettyPrint v
+prettyPrint (MyArray vs) =
+  let indent = Prelude.replicate 2 ' '
+  in "[\n" ++ Prelude.concatMap (\v -> indent ++ prettyPrint' v ++ ",\n") vs ++ "]"
+  where prettyPrint' v = Prelude.unlines $ Prelude.map (Prelude.replicate 2 ' ' ++) $ Prelude.lines $ prettyPrint v
+prettyPrint (MyString s) = "\"" ++ s ++ "\""
+prettyPrint (MyNumber n) = show n
+prettyPrint (MyBool b) = if b then "true" else "false"
+prettyPrint MyNull = "null"
