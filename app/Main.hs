@@ -28,6 +28,9 @@ main = do
             checkType (toMyValue a)
             putStrLn " "
             putStrLn $ prettyPrint (moveKey "type" (toMyValue a))
+            putStrLn " "
+            putStrLn "Specific fields:"
+            putStrLn $ prettyPrint (myObjectSpecificFields ["type"] (toMyValue a))
         Nothing -> putStrLn "Error"
     putStrLn " "
 
@@ -97,3 +100,6 @@ moveKey key (MyObject obj) =
             in MyObject $ (key, value) : objectWithoutKey
         Nothing -> MyObject obj
 moveKey key (MyArray arr) = MyArray $ L.map (moveKey key) arr
+
+myObjectSpecificFields :: [String] -> MyValue -> MyValue
+myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `Prelude.elem` keys) obj
