@@ -25,15 +25,9 @@ main = do
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            putStrLn "Original Data Type:"
-            print $ a -- [(Key, Value)]'
-            putStrLn " "
-            putStrLn "Custom Data Type:"
-            print $ toMyValue a
-            putStrLn " "
             checkType (toMyValue a)
             putStrLn " "
-            putStrLn $ prettyPrint (toMyValue a)
+            putStrLn $ prettyPrint (moveKey "type" (toMyValue a))
         Nothing -> putStrLn "Error"
     putStrLn " "
 
@@ -73,9 +67,8 @@ checkType (MyObject obj) = case lookup "type" obj of
     Just (MyString "test-platform") -> putStrLn "Item Type is Test Platform"
     Just (MyString "test-procedure") -> putStrLn "Item Type is Test Procedure"
     Just (MyString "test-suite") -> putStrLn "Item Type is Test Suite"
-    Just x -> putStrLn "unrecognised item type"
     Nothing -> putStrLn "Error"
-checkType _ = putStrLn "Error: not an object"
+    _ -> putStrLn "Error: not an object"
 
 -- removes the two quotation marks from either side of a string that has
 -- been processed with the "show" function
@@ -83,15 +76,24 @@ sanitiseString :: String -> String
 sanitiseString = Prelude.drop 1 . Prelude.init
 
 prettyPrint :: MyValue -> String
-prettyPrint (MyObject kvs) =
-  let indent = Prelude.replicate 2 ' '
-  in "{\n" ++ Prelude.concatMap (\(k, v) -> indent ++ "- " ++ k ++ ": " ++ prettyPrint' v) kvs ++ "  }"
+prettyPrint (MyObject obj) = "{\n" ++ Prelude.concatMap (\(k, v) -> "  " ++ "- " ++ k ++ ": " ++ prettyPrint' v) obj ++ "  }"
   where prettyPrint' v = Prelude.unlines $ Prelude.map ("" ++) $ Prelude.lines $ prettyPrint v
-prettyPrint (MyArray vs) =
-  let indent = Prelude.replicate 2 ' '
-  in "[\n" ++ Prelude.concatMap (\v -> indent ++ prettyPrint' v) vs ++ "  ]"
+prettyPrint (MyArray arr) = "[\n" ++ Prelude.concatMap (\v -> "  " ++ prettyPrint' v) arr ++ "  ]"
   where prettyPrint' v = Prelude.unlines $ Prelude.map (Prelude.replicate 2 ' ' ++) $ Prelude.lines $ prettyPrint v
 prettyPrint (MyString s) = show s
 prettyPrint (MyNumber n) = show n
 prettyPrint (MyBool b) = if b then "true" else "false"
 prettyPrint MyNull = "null"
+
+moveKey :: String -> MyValue -> MyValue
+moveKey _ MyNull = MyNull
+moveKey _ (MyString s) = MyString s
+moveKey _ (MyNumber n) = MyNumber n
+moveKey _ (MyBool b) = MyBool b
+moveKey key (MyObject obj) = 
+    case lookup key obj of
+        Just value ->
+            let objectWithoutKey = L.filter (\(k, v) -> k /= key) obj
+            in MyObject $ (key, value) : objectWithoutKey
+        Nothing -> MyObject obj
+moveKey key (MyArray arr) = MyArray $ L.map (moveKey key) arr
