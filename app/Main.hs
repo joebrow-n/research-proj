@@ -30,7 +30,7 @@ main = do
             putStrLn $ prettyPrint (moveKey "type" (toMyValue a))
             putStrLn " "
             putStrLn "Specific fields:"
-            putStrLn $ prettyPrint (myObjectSpecificFields ["type"] (toMyValue a))
+            putStrLn $ prettyPrint (myObjectSpecificFields (Prelude.tail args) (toMyValue a)) -- passing in commandline arguments
         Nothing -> putStrLn "Error"
     putStrLn " "
 
