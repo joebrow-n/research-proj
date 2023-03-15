@@ -48,6 +48,7 @@ library
 executable hCode
   main-is: Main.hs
   other-modules:
+      MyValue
       Paths_haskellCode
   hs-source-dirs:
       app
