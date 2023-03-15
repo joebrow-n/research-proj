@@ -1,45 +1,5 @@
-module Main (main) where
+module MyValue where
 
-{-# LANGUAGE OverloadedStrings #-}
-
-import Data.Text
--- import Data.Typeable
-import Data.Yaml as Y
-import System.Environment
-
-import qualified Data.Aeson.KeyMap as AKM
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.List as L
-import qualified Data.Map.Strict as MS
-import qualified Data.Scientific as S
-import qualified Data.Vector as V
-import qualified MyValue as MV
-
-main :: IO ()
-main = do
-    -- try with event-recieve yaml
-    -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\req\send.yml"
-    -- "C:\Users\brown\OneDrive\Desktop\Research Project\rtems-central\spec\rtems\event\if\event-07.yml"
-    args <- getArgs
-    let fileName = Prelude.head args
-    content <- BS.readFile fileName
-    let yamlData = decodeThrow content :: Maybe Value
-    case yamlData of 
-        Just a -> do
-            checkType (toMyValue a)
-            putStrLn " "
-            print $ (toMyValue a)
-            putStrLn " "
-            putStrLn $ prettyPrint (moveKey "type" (toMyValue a))
-            putStrLn " "
-            putStrLn "Specific fields:"
-            putStrLn $ prettyPrint (myObjectSpecificFields (Prelude.tail args) (toMyValue a)) -- passing in commandline arguments
-        Nothing -> putStrLn "Error"
-    putStrLn " "
-
--- Custom Data Type which is used to reprsent the Data.Aeson "Value"
--- Data Type, but instead of using custom constructors, uses the std.
--- Haskell constructors
 data MyValue
   = MyObject [(String, MyValue)]
   | MyArray [MyValue]
