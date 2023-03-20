@@ -19,7 +19,7 @@ data MyValue
   | MyNumber Float 
   | MyBool Bool
   | MyNull
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- Converts Value Data Type to custom MyValue Data Type
 toMyValue :: Value -> MyValue
@@ -81,6 +81,15 @@ moveKey key (MyObject obj) =
         Nothing -> MyObject obj
 moveKey key (MyArray arr) = MyArray $ L.map (moveKey key) arr
 
+-- Moves any fields with "type" contained in the field to the top of the MyValue
+prioritiseType :: MyValue -> MyValue
+prioritiseType (MyObject obj) = MyObject $ ((Prelude.reverse typeEntries) ++ otherEntries) where (typeEntries, otherEntries) = L.partition (\k -> "type" `L.isInfixOf` fst k) obj
+
 -- Prints only the fields corresponding to the keys given in a list
 myObjectSpecificFields :: [String] -> MyValue -> MyValue
-myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `Prelude.elem` keys) obj
+myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `L.elem` keys) obj
+
+-- Check that all post/pre condition variations (combinations) are covered
+-- Estimate how many different combinations there are (how many entries will be in the maximal list)
+-- Being able to follow links within around the directory
+-- Given type, follow relevant links to other 

@@ -20,9 +20,9 @@ main = do
             putStrLn " "
             print $ (MV.toMyValue a)
             putStrLn " "
-            putStrLn $ MV.prettyPrint (MV.moveKey "type" (MV.toMyValue a))
-            putStrLn " "
-            putStrLn "Specific fields:"
-            putStrLn $ MV.prettyPrint (MV.myObjectSpecificFields (Prelude.tail args) (MV.toMyValue a)) -- passing in commandline arguments
+            putStrLn $ MV.prettyPrint (MV.prioritiseType (MV.toMyValue a))
+            -- putStrLn " "
+            -- putStrLn "Specific fields:"
+            -- putStrLn $ MV.prettyPrint (MV.myObjectSpecificFields (Prelude.tail args) (MV.toMyValue a)) -- passing in commandline arguments
         Nothing -> putStrLn "Error"
     putStrLn " "
