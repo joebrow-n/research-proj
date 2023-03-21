@@ -126,6 +126,23 @@ Returns: MyValue
 myObjectSpecificFields :: [String] -> MyValue -> MyValue
 myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `L.elem` keys) obj
 
+{-
+Description: Combines a variable number of lists into a list of tuples
+covering every possible combination of entries in each list
+Parameters: [[String]] (A list of a list of strings - the nested list
+allows for the variable number of lists)
+Returns: [[String]]
+-}
+getConditionList :: [[a]] -> [[a]]
+getConditionList [] = [[]]
+getConditionList (xs:xss) = [ x:ys | x <- xs, ys <- getConditionList xss ]
+
+--------- Pseudo code -------------
+{-
+Traverse object - extract transition-map object
+
+-}
+
 -- Check that all post/pre condition variations (combinations) are covered
 -- Estimate how many different combinations there are (how many entries will be in the maximal list)
 -- Being able to follow links within around the directory
