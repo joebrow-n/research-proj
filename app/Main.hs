@@ -16,13 +16,7 @@ main = do
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            MV.checkType (MV.toMyValue a)
-            putStrLn " "
-            print $ (MV.toMyValue a)
-            putStrLn " "
-            putStrLn $ MV.prettyPrint (MV.prioritiseType (MV.toMyValue a))
-            -- putStrLn " "
-            -- putStrLn "Specific fields:"
-            -- putStrLn $ MV.prettyPrint (MV.myObjectSpecificFields (Prelude.tail args) (MV.toMyValue a)) -- passing in commandline arguments
+            print $ (MV.toMyValue' a)
+            putStrLn $ MV.prettyPrint (MV.toMyValue a)
         Nothing -> putStrLn "Error"
     putStrLn " "
