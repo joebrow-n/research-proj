@@ -1,3 +1,10 @@
+enabled-by: true
+functional-type: action
+links:
+- role: requirement-refinement
+  uid: group
+- role: interface-function
+  uid: ../../type/if/no-timeout
 transition-map:
 - enabled-by: true
   post-conditions:
@@ -22,3 +29,26 @@ transition-map:
     - InvAddr
     Satisfy: N/A
     Send: all
+- enabled-by: true
+  post-conditions: NoOtherScheduler
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Other
+    Satisfy: all
+    Send: all
+- enabled-by: RTEMS_SMP
+  post-conditions:
+    ReceiveStatus: Blocked
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Other
+    Satisfy: all
+    Send:
+    - Unrelated
+    - Zero

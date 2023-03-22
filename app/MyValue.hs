@@ -137,11 +137,54 @@ getConditionList :: [[a]] -> [[a]]
 getConditionList [] = [[]]
 getConditionList (xs:xss) = [ x:ys | x <- xs, ys <- getConditionList xss ]
 
---------- Pseudo code -------------
 {-
-Traverse object - extract transition-map object
-
+Takes a list of MyValues - these will be either MyString or MyArrays containing MyStrings. If
+there is a MyArray present, it duplicates the list but each time changes the value of the MyString
+that was in the MyArray. For example:
+Input:
+[MyString "Jeff", MyString "Anna", MyString "Amy", MyArray [MyString "Joe", MyString "Greg"], MyString "Fred"] 
+Output:
+[MyString "Jeff", MyString "Anna", MyString "Amy", MyString "Greg", MyString "Fred"] 
+[MyString "Jeff", MyString "Anna", MyString "Amy", MyString "Joe", MyString "Fred"] 
 -}
+splitArrays :: [MyValue] -> [[MyValue]]
+splitArrays [] = [[]]
+splitArrays (MyArray arr : rest) =
+  [x : xs | x <- arr, xs <- splitArrays rest]
+splitArrays (x:rest) =
+  [x : xs | xs <- splitArrays rest]
+
+{-
+Following function can extract a given keys value from a MyValue, i.e., extract the
+transition map
+-}
+findKey :: String -> MyValue -> MyValue
+findKey key (MyObject obj) = snd $ head $ L.filter (\(k, v) -> k == key) obj
+
+{-
+Given MyArray of MyObjects, filters out any nested MyObjects with a given key
+and adds them to a list. i.e., can add all post- or pre-conditions to a list
+of MyObjects
+-}
+findConditions :: MyValue -> String -> [MyValue]
+findConditions (MyArray arr) key = L.map (findKey key) arr
+
+{-
+Takes a list of MyValues (i.e., the list of post- or pre-condition MyObjects
+extracted from the transition map) and turns them into a list of MyStrings
+-}
+conditionsToList :: [MyValue] -> [[MyValue]]
+conditionsToList [] = []
+conditionsToList (MyObject x : xs) = [extractValues x] ++ conditionsToList xs
+conditionsToList (MyString x : xs) = conditionsToList xs
+conditionsToList _ = []
+
+{-
+Helper functino which helps conditionsToList to extract values from each MyObject
+-}
+extractValues :: [(String, MyValue)] -> [MyValue]
+extractValues [] = []
+extractValues (x : xs) = [snd x] ++ extractValues xs
 
 -- Check that all post/pre condition variations (combinations) are covered
 -- Estimate how many different combinations there are (how many entries will be in the maximal list)
