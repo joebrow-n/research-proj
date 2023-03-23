@@ -16,8 +16,9 @@ main = do
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            putStrLn $ "File being processed: " ++ show fileName
             putStrLn $ "--------------------------------------------------------------"
+            putStrLn $ "File being processed: " ++ show fileName
+            putStr $ "--------------------------------------------------------------"
             putStr $ "\nReadable file format:\n"
             putStrLn $ MV.prettyPrint (MV.toMyValue a)
             putStrLn $ "--------------------------------------------------------------"
