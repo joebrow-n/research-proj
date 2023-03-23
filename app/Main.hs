@@ -16,7 +16,16 @@ main = do
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            print $ (MV.toMyValue' a)
+            putStrLn $ "File being processed: " ++ show fileName
+            putStrLn $ "--------------------------------------------------------------"
+            putStr $ "\nReadable file format:\n"
             putStrLn $ MV.prettyPrint (MV.toMyValue a)
+            putStrLn $ "--------------------------------------------------------------"
+            putStr $ "Percentage coverage of pre conditions: " ++ show (MV.getPreCondPercent (MV.toMyValue a)) ++ "%\n"
+            putStr $ MV.prettyPrintPreConds (MV.removeMatchingSublists (MV.getPreConditions (MV.toMyValue a)) (MV.getMaxPreConditions (MV.toMyValue a)))
+            putStrLn $ "--------------------------------------------------------------"
+            putStr $ "Percentage coverage of post conditions: " ++ show (MV.getPostCondPercent (MV.toMyValue a)) ++ "%\n"
+            putStr $ MV.prettyPrintPostConds (MV.removeMatchingSublists (MV.getPostConditions (MV.toMyValue a)) (MV.getMaxPostConditions (MV.toMyValue a)))
+            putStrLn $ "--------------------------------------------------------------"
         Nothing -> putStrLn "Error"
     putStrLn " "

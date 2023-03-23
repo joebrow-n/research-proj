@@ -1,10 +1,254 @@
-enabled-by: true
-functional-type: action
-links:
-- role: requirement-refinement
-  uid: group
-- role: interface-function
-  uid: ../../type/if/no-timeout
+post-conditions:
+- name: SendStatus
+  states:
+  - name: Ok
+    test-code: |
+      T_rsc_success( ctx->send_status );
+    text: |
+      The send event status shall be RTEMS_SUCCESSFUL.
+  - name: InvId
+    test-code: |
+      T_rsc( ctx->send_status, RTEMS_INVALID_ID );
+    text: |
+      The send event status shall be RTEMS_INVALID_ID.
+  test-epilogue: null
+  test-prologue: null
+- name: ReceiveStatus
+  states:
+  - name: None
+    test-code: |
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNKNOWN );
+      T_eq_u32( GetPendingEvents( ctx ), 0 );
+    text: |
+      The receiver task shall not have pending events.
+  - name: Pending
+    test-code: |
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNKNOWN );
+      T_eq_u32( GetPendingEvents( ctx ), ctx->events_to_send );
+    text: |
+      The receiver task shall have all events sent pending.
+  - name: Timeout
+    test-code: |
+      T_rsc( ctx->receive_status, RTEMS_TIMEOUT );
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNKNOWN );
+      T_eq_u32( GetPendingEvents( ctx ), ctx->events_to_send );
+    text: |
+      The receive event status shall be ${../../status/if/timeout:/name}.  The
+      receiver task shall have all events sent after the timeout pending.
+  - name: Satisfied
+    test-code: |
+      T_rsc( ctx->receive_status, RTEMS_SUCCESSFUL );
+
+      if ( ctx->receive_type != RECEIVE_NORMAL ) {
+        T_eq_int( ctx->receive_condition_state, RECEIVE_COND_SATSIFIED );
+      }
+
+      T_eq_u32( ctx->received_events, ctx->events_to_send & INPUT_EVENTS );
+      T_eq_u32( GetPendingEvents( ctx ), ctx->events_to_send & ~INPUT_EVENTS );
+    text: |
+      The receive event status shall be ${../../status/if/successful:/name}.
+      The receiver task shall receive all events sent which are an element of
+      the input events.  The receiver task shall have all events sent which are
+      not an element of the input events pending.
+  - name: Unsatisfied
+    test-code: |
+      T_rsc( ctx->receive_status, RTEMS_UNSATISFIED );
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNKNOWN );
+      T_eq_u32( GetPendingEvents( ctx ), ctx->events_to_send );
+    text: |
+      The receive event status shall be ${../../status/if/unsatisfied:/name}.
+      The receiver task shall have all events sent pending.
+  - name: Blocked
+    test-code: |
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNSATISFIED );
+      T_eq_u32( ctx->unsatisfied_pending, ctx->events_to_send );
+    text: |
+      The receiver task shall remain blocked waiting for events after the
+      directive call.  The receiver task shall have all events sent pending.
+  - name: InvAddr
+    test-code: |
+      T_rsc( ctx->receive_status, RTEMS_INVALID_ADDRESS );
+      T_eq_int( ctx->receive_condition_state, RECEIVE_COND_UNKNOWN );
+      T_eq_u32( GetPendingEvents( ctx ), ctx->events_to_send );
+    text: |
+      The receive event status shall be
+      ${../../status/if/invalid-address:/name}.  The receiver task shall have
+      all events sent pending.
+  test-epilogue: null
+  test-prologue: null
+- name: SenderPreemption
+  states:
+  - name: 'No'
+    test-code: |
+      /*
+       * There may be a thread switch to the runner thread if the sender thread
+       * was on another scheduler instance.
+       */
+
+      T_le_sz( log->header.recorded, 1 );
+
+      for ( i = 0; i < log->header.recorded; ++i ) {
+        T_ne_u32( log->events[ i ].executing, ctx->worker_id );
+        T_eq_u32( log->events[ i ].heir, ctx->runner_id );
+      }
+    text: |
+      When the sender task calls the directive to send the events, the sender
+      task shall not be preempted as a result of the call.
+  - name: 'Yes'
+    test-code: |
+      T_eq_sz( log->header.recorded, 2 );
+      T_eq_u32( log->events[ 0 ].heir, ctx->runner_id );
+      T_eq_u32( log->events[ 1 ].heir, ctx->worker_id );
+    text: |
+      When the sender task calls the directive to send the events, the sender
+      task shall be preempted as a result of the call.
+  test-epilogue: null
+  test-prologue: |
+    const T_thread_switch_log_4 *log;
+    size_t                       i;
+
+    log = &ctx->thread_switch_log;
+pre-conditions:
+- name: Id
+  states:
+  - name: InvId
+    test-code: |
+      ctx->receiver_id = 0xffffffff;
+      ctx->sender_type = SENDER_SELF;
+    text: |
+      While the id parameter of the send directive is not associated with a
+      task.
+  - name: Task
+    test-code: |
+      ctx->receiver_id = ctx->runner_id;
+    text: |
+      While the id parameter of the send directive is is associated with a
+      task.
+  test-epilogue: null
+  test-prologue: null
+- name: Send
+  states:
+  - name: Zero
+    test-code: |
+      ctx->events_to_send = 0;
+    text: |
+      While the event set sent is the empty.
+  - name: Unrelated
+    test-code: |
+      ctx->events_to_send = RTEMS_EVENT_7;
+    text: |
+      While the event set sent is unrelated to the event receive condition.
+  - name: Any
+    test-code: |
+      ctx->events_to_send = RTEMS_EVENT_5;
+    text: |
+      While the event set sent is contain at least one but not all events of
+      the event receive condition.
+  - name: All
+    test-code: |
+      ctx->events_to_send = RTEMS_EVENT_5 | RTEMS_EVENT_23;
+    text: |
+      While the event set sent is contain all events of the event receive
+      condition.
+  - name: MixedAny
+    test-code: |
+      ctx->events_to_send = RTEMS_EVENT_5 | RTEMS_EVENT_7;
+    text: |
+      While the event set sent is contain at least one but not all events of
+      the event receive condition and at least one unrelated event.
+  - name: MixedAll
+    test-code: |
+      ctx->events_to_send = RTEMS_EVENT_5 | RTEMS_EVENT_7 | RTEMS_EVENT_23;
+    text: |
+      While the event set sent is contain all events of the event receive
+      condition and at least one unrelated event.
+  test-epilogue: null
+  test-prologue: null
+- name: ReceiverState
+  states:
+  - name: InvAddr
+    test-code: |
+      ctx->sender_type = SENDER_SELF;
+      ctx->receive_type = RECEIVE_NORMAL;
+      ctx->received_events_parameter = NULL;
+    text: |
+      While the receiver task calls the receive directive with the event set to
+      receive parameter set to ${/c/if/null:/name}.
+  - name: NotWaiting
+    test-code: |
+      ctx->sender_type = SENDER_SELF;
+      ctx->receive_type = RECEIVE_SKIP;
+    text: |
+      While the receiver task is not waiting for events.
+  - name: Poll
+    test-code: |
+      ctx->sender_type = SENDER_SELF;
+      ctx->receive_type = RECEIVE_NORMAL;
+      ctx->receive_option_set |= RTEMS_NO_WAIT;
+    text: |
+      While the receiver task polls for events.
+  - name: Timeout
+    test-code: |
+      ctx->sender_type = SENDER_SELF_2;
+      ctx->receive_type = RECEIVE_NORMAL;
+      ctx->receive_timeout = 1;
+    text: |
+      While the receiver task waited for events with a timeout which
+      occurred.
+  - name: Lower
+    test-code: |
+      ctx->sender_type = SENDER_WORKER;
+      ctx->sender_prio = PRIO_HIGH;
+      ctx->receive_type = RECEIVE_NORMAL;
+    text: |
+      While the receiver task is blocked waiting for events and the receiver
+      task shall have a lower priority than the sender task.
+  - name: Equal
+    test-code: |
+      ctx->sender_type = SENDER_WORKER;
+      ctx->sender_prio = PRIO_NORMAL;
+      ctx->receive_type = RECEIVE_NORMAL;
+    text: |
+      While the receiver task is blocked waiting for events and the receiver
+      task shall have a priority equal to the sender task.
+  - name: Higher
+    test-code: |
+      ctx->sender_type = SENDER_WORKER;
+      ctx->sender_prio = PRIO_LOW;
+      ctx->receive_type = RECEIVE_NORMAL;
+    text: |
+      While the receiver task is blocked waiting for events and the receiver
+      task shall have a higher priority than the sender task.
+  - name: Other
+    test-code: |
+      ctx->sender_type = SENDER_WORKER;
+      ctx->sender_prio = PRIO_OTHER;
+      ctx->receive_type = RECEIVE_NORMAL;
+    text: |
+      While the receiver task is blocked waiting for events and the receiver
+      task shall be on another scheduler instance than the sender task.
+  - name: Intend
+    test-code: |
+      ctx->sender_type = SENDER_INTERRUPT;
+      ctx->receive_type = RECEIVE_INTERRUPT;
+    text: |
+      While the receiver task intends to block for waiting for events.
+  test-epilogue: null
+  test-prologue: null
+- name: Satisfy
+  states:
+  - name: All
+    test-code: |
+      ctx->receive_option_set |= RTEMS_EVENT_ALL;
+    text: |
+      While the receiver task is interested in all input events.
+  - name: Any
+    test-code: |
+      ctx->receive_option_set |= RTEMS_EVENT_ANY;
+    text: |
+      While the receiver task is interested in any input event.
+  test-epilogue: null
+  test-prologue: null
 transition-map:
 - enabled-by: true
   post-conditions:
@@ -30,6 +274,158 @@ transition-map:
     Satisfy: N/A
     Send: all
 - enabled-by: true
+  post-conditions:
+    ReceiveStatus: Pending
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - NotWaiting
+    Satisfy: N/A
+    Send: all
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Timeout
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Timeout
+    Satisfy: all
+    Send: all
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Unsatisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Poll
+    Satisfy: all
+    Send:
+    - Zero
+    - Unrelated
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Blocked
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Lower
+    - Equal
+    - Higher
+    - Intend
+    Satisfy: all
+    Send:
+    - Unrelated
+    - Zero
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'Yes'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Higher
+    Satisfy: all
+    Send:
+    - All
+    - MixedAll
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Poll
+    - Lower
+    - Equal
+    - Intend
+    Satisfy: all
+    Send:
+    - All
+    - MixedAll
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'Yes'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Higher
+    Satisfy:
+    - Any
+    Send:
+    - Any
+    - MixedAny
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Poll
+    - Lower
+    - Equal
+    - Intend
+    Satisfy:
+    - Any
+    Send:
+    - Any
+    - MixedAny
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Unsatisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Poll
+    Satisfy:
+    - All
+    Send:
+    - Any
+    - MixedAny
+- enabled-by: true
+  post-conditions:
+    ReceiveStatus: Blocked
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Lower
+    - Equal
+    - Higher
+    - Intend
+    Satisfy:
+    - All
+    Send:
+    - Any
+    - MixedAny
+- enabled-by: true
   post-conditions: NoOtherScheduler
   pre-conditions:
     Id:
@@ -52,3 +448,47 @@ transition-map:
     Send:
     - Unrelated
     - Zero
+- enabled-by: RTEMS_SMP
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Other
+    Satisfy: all
+    Send:
+    - All
+    - MixedAll
+- enabled-by: RTEMS_SMP
+  post-conditions:
+    ReceiveStatus: Satisfied
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Other
+    Satisfy:
+    - Any
+    Send:
+    - Any
+    - MixedAny
+- enabled-by: RTEMS_SMP
+  post-conditions:
+    ReceiveStatus: Blocked
+    SendStatus: Ok
+    SenderPreemption: 'No'
+  pre-conditions:
+    Id:
+    - Task
+    ReceiverState:
+    - Other
+    Satisfy:
+    - All
+    Send:
+    - Any
+    - MixedAny
