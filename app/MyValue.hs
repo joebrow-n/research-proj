@@ -119,7 +119,7 @@ prioritiseType :: MyValue -> MyValue
 prioritiseType (MyObject obj) = MyObject $ ((Prelude.reverse typeEntries) ++ otherEntries) where (typeEntries, otherEntries) = L.partition (\k -> "type" `L.isInfixOf` fst k) obj
 
 {-
-Description: Prints only the fields corresponding to the keys given in a list
+Description: returns only the fields corresponding to the keys given in a list
 Parameters: [String] (Might be obtained from commandline arguments), MyValue (MyValue to be searched)
 Returns: MyValue
 -}
@@ -289,7 +289,7 @@ appear in the transition map, Thus, the maximal list needs to be
 reordered before being compared with the actual list
 -}
 reorderPreConditions :: [[MyValue]] -> [[MyValue]]
-reorderPreConditions xs = L.map (\(a:b:c:d:rest) -> a:d:b:c:rest) xs
+reorderPreConditions xs = L.map (\(a:b:c:d:rest) -> a:c:d:b:rest) xs
 
 {-
 Description: Takes two lists of lists of MyValues and checks to see if any of the sublists
@@ -301,11 +301,12 @@ Returns: [[MyValue]]
 -}
 removeMatchingSublists :: [[MyValue]] -> [[MyValue]] -> [[MyValue]]
 removeMatchingSublists listsToRemove fromLists =
-  L.filter (\lst -> notElem lst listsToRemove) fromLists'
+  Prelude.filter (\lst -> notElem lst listsToRemove) fromLists'
   where
-    fromLists' = L.foldl (\acc lst -> L.filter (not . match lst) acc) fromLists listsToRemove
+    fromLists' = Prelude.foldl (\acc lst -> L.filter (not . match lst) acc) fromLists listsToRemove
     match [] [] = True
     match (MyString "N/A":xs) (_:ys) = match xs ys
+    match (MyString "all":xs) (_:ys) = match xs ys
     match (x:xs) (y:ys) = x == y && match xs ys
     match _ _ = False
 
@@ -330,6 +331,15 @@ prettyPrintPreConds' :: [MyValue] -> String
 prettyPrintPreConds' [] = []
 prettyPrintPreConds' (MyString a : MyString b : MyString c : MyString d : xs) = "ID: " ++ show a ++ "\nReceiver State: " ++ show b ++ "\nSatisfy: " ++ show c ++ "\nSend: " ++ show d 
 
+prettyPrintPreCondsWithCode :: [[MyValue]] -> MyValue-> String
+prettyPrintPreCondsWithCode [] myVal= []
+prettyPrintPreCondsWithCode (a:xs) myVal = prettyPrintPreCondsWithCode' a myVal ++ "\n\n" ++ prettyPrintPreCondsWithCode xs myVal
+
+prettyPrintPreCondsWithCode' :: [MyValue] -> MyValue -> String
+prettyPrintPreCondsWithCode' [] myVal = "Empty list of Pre Conditions" 
+prettyPrintPreCondsWithCode' (MyString idCond : MyString receiverCond : MyString  satisfyCond : MyString sendCond : xs) myVal = "ID: " ++ show idCond ++ "\nReceiver State: " ++ show receiverCond ++ "\nSatisfy: " ++ show satisfyCond ++ "\nSend: " ++ show sendCond ++ "\n" ++  (getCondCode "Id" idCond "pre-conditions" myVal ++ getCondCode "ReceiverState" receiverCond "pre-conditions" myVal ++ getCondCode "Satisfy" satisfyCond "pre-conditions" myVal ++ getCondCode "Send" sendCond "pre-conditions" myVal)
+prettyPrintPreCondsWithCode' _ _ = "Error Printing Pre Condition code"
+
 {-
 Description:
 Parameters:
@@ -343,6 +353,92 @@ prettyPrintPostConds' :: [MyValue] -> String
 prettyPrintPostConds' [] = []
 prettyPrintPostConds' (MyString a : MyString b: MyString c : xs) = "Receive Status: " ++ show a ++ "\nSend Status: " ++ show b ++ "\nSender Pre-emption: " ++ show c
 prettyPrintPostConds' _ = []
+
+prettyPrintPostCondsWithCode :: [[MyValue]] -> MyValue-> String
+prettyPrintPostCondsWithCode [] myVal= []
+prettyPrintPostCondsWithCode (a:xs) myVal = prettyPrintPostCondsWithCode' a myVal ++ "\n\n" ++ prettyPrintPostCondsWithCode xs myVal
+
+prettyPrintPostCondsWithCode' :: [MyValue] -> MyValue -> String
+prettyPrintPostCondsWithCode' [] myVal = "Empty list of Pre Conditions" 
+prettyPrintPostCondsWithCode' (MyString receiveCond : MyString sendCond : MyString  senderPreCond : xs) myVal = "Receive Status: " ++ show receiveCond ++ "\nSend Status: " ++ show sendCond ++ "\nSender Pre-emption: " ++ show senderPreCond ++ "\n" ++ (getCondCode "ReceiveStatus" receiveCond "post-conditions" myVal ++ getCondCode "SendStatus" sendCond "post-conditions" myVal ++ getCondCode "SenderPreemption" senderPreCond "post-conditions" myVal)
+prettyPrintPostCondsWithCode' _ _ = "Error Printing Pre Condition code"
+
+getCondCode :: String -> String -> String -> MyValue -> String
+getCondCode condName condState preOrPost myVal = fromMyStringToString (snd ((Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condState)) listToSearch))!!1)) where 
+    listToSearch = fromMyObjectToList (fromMyArrayToList (snd ((getSpecifiedCond condName preOrPost myVal)!!1)))
+
+getSpecifiedCond :: String -> String -> MyValue -> [(String, MyValue)]
+getSpecifiedCond condName preOrPost myVal = Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condName)) listToSearch) where 
+    listToSearch = fromMyObjectMyArrayToList preOrPost myVal
+
+getSpecifiedCond' :: String -> [[(String, MyValue)]] -> [(String, MyValue)]
+getSpecifiedCond' condName myValList = Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condName)) myValList)
+
+fromMyObjectMyArrayToList :: String -> MyValue -> [[(String, MyValue)]]
+fromMyObjectMyArrayToList str myVal = fromMyObjectToList (fromMyArrayToList (findKey str myVal))
+
+fromMyArrayToList :: MyValue -> [MyValue]
+fromMyArrayToList (MyArray arr) = arr 
+
+fromMyObjectToList :: [MyValue] -> [[(String, MyValue)]]
+fromMyObjectToList [] = []
+fromMyObjectToList (x : xs) = [fromMyObjectToList' x] ++ fromMyObjectToList xs
+
+fromMyObjectToList' :: MyValue -> [(String, MyValue)]
+fromMyObjectToList' (MyObject obj) = obj
+
+fromMyStringToString :: MyValue -> String
+fromMyStringToString (MyString str) = str
+
+{-
+Description:
+Parameters:
+Returns:
+-}
+parseArgs :: [String] -> [(String, [String])]
+parseArgs [] = []
+parseArgs (flag:args) =
+  case Prelude.span (not . isFlag) args of
+    ([], rest) -> [(flag, [])] ++ parseArgs rest
+    (params, rest) -> [(flag, params)] ++ parseArgs rest
+  where isFlag str = Prelude.take 2 str == "--"
+
+{-
+Description:
+Parameters:
+Returns:
+-}
+processArgs :: [(String, [String])] -> MyValue -> String
+processArgs xs myVal = Prelude.foldl (\acc x -> acc ++ (cmdFunc x myVal)) "" xs
+
+cmdFunc :: (String, [String]) -> MyValue -> String
+cmdFunc x myVal = case fst x of "--prettyprint" -> "prettyprint function\n"
+                                "--preconds" -> "Pre Conditions function\n"
+                                "--postconds" -> "Post Conditions function\n"
+                                _ -> "Error - input not recognised"
+
+handlePrettyPrint :: [String] -> MyValue -> String
+handlePrettyPrint xs myVal = Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs
+handlePrettyPrint [] myVal = prettyPrint myVal
+
+handlePrettyPrint' :: String -> MyValue -> String
+handlePrettyPrint' str obj = prettyPrint $ myObjectSpecificFields [str] obj
+
+handlePreConds :: [String] -> MyValue -> String
+handlePreConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePreConds' x myVal) "" xs
+
+handlePreConds' :: String -> MyValue -> String
+handlePreConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent (myVal)) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions (myVal)) (getMaxPreConditions (myVal)))
+handlePreConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent (myVal)) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions (myVal)) (getMaxPreConditions (myVal))) myVal
+handlePreConds' _ _ = "Error"
+
+handlePostConds :: [String] -> MyValue -> String
+handlePostConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePostConds' x myVal) "" xs
+
+handlePostConds' :: String -> MyValue -> String
+handlePostConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent (myVal)) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions (myVal)) (getMaxPostConditions (myVal)))
+handlePostConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent (myVal)) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions (myVal)) (getMaxPostConditions (myVal))) myVal
+handlePostConds' _ _ = "Error"   
 
 -- Check that all post/pre condition variations (combinations) are covered
 -- Estimate how many different combinations there are (how many entries will be in the maximal list)
