@@ -3,10 +3,8 @@ module MyValue where
 import Data.Text
 -- import Data.Typeable
 import Data.Yaml as Y
-import System.Environment
 
 import qualified Data.Aeson.KeyMap as AKM
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.List as L
 import qualified Data.Map.Strict as MS
 import qualified Data.Scientific as S
@@ -37,7 +35,7 @@ Returns: MyValue
 -}
 toMyValue' :: Value -> MyValue
 toMyValue' (Object obj) = MyObject $ L.map (\(k, v) -> (sanitiseString $ show k, toMyValue' v)) $ MS.toList $ AKM.toMap obj
-toMyValue' (Array arr) = MyArray $ L.map (\k -> toMyValue' k) $ V.toList arr
+toMyValue' (Array arr) = MyArray $ L.map toMyValue' $ V.toList arr
 toMyValue' (String str) = MyString $ unpack str
 toMyValue' (Number num) = MyNumber (S.toRealFloat num)
 toMyValue' (Bool bool) = MyBool bool
@@ -64,6 +62,7 @@ checkType (MyObject obj) = case lookup "type" obj of
     Just (MyString "test-suite") -> putStrLn "Item Type is Test Suite"
     Nothing -> putStrLn "Error"
     _ -> putStrLn "Error: not an object"
+checkType _ = putStrLn "Error: Not an object"
 
 {-
 Description: removes the two quotation marks from either side of a string that has
@@ -105,7 +104,7 @@ moveKey _ (MyBool b) = MyBool b
 moveKey key (MyObject obj) = 
     case lookup key obj of
         Just value ->
-            let objectWithoutKey = L.filter (\(k, v) -> k /= key) obj
+            let objectWithoutKey = L.filter (\(k, _) -> k /= key) obj
             in MyObject $ (key, value) : objectWithoutKey
         Nothing -> MyObject obj
 moveKey key (MyArray arr) = MyArray $ L.map (moveKey key) arr
@@ -116,8 +115,8 @@ Parameters: MyValue
 Returns: MyValue
 -}
 prioritiseType :: MyValue -> MyValue
-prioritiseType (MyObject obj) = MyObject $ ((Prelude.reverse typeEntries) ++ otherEntries) where (typeEntries, otherEntries) = L.partition (\k -> "type" `L.isInfixOf` fst k) obj
-
+prioritiseType (MyObject obj) = MyObject (Prelude.reverse typeEntries ++ otherEntries) where (typeEntries, otherEntries) = L.partition (\k -> "type" `L.isInfixOf` fst k) obj
+prioritiseType _ = MyString "type to be priortised is not an object"
 {-
 Description: returns only the fields corresponding to the keys given in a list
 Parameters: [String] (Might be obtained from commandline arguments), MyValue (MyValue to be searched)
@@ -125,6 +124,7 @@ Returns: MyValue
 -}
 myObjectSpecificFields :: [String] -> MyValue -> MyValue
 myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `L.elem` keys) obj
+myObjectSpecificFields _ _ = MyString "Error finding Specific Key from Object"
 
 {-
 Description: Takes a MyValue and retrieves a list of lists of post-conditions
@@ -171,7 +171,7 @@ Returns: [[MyValue]]
 -}
 makeUniqueCondList :: [[MyValue]] -> [[MyValue]]
 makeUniqueCondList [] = []
-makeUniqueCondList (x:xs) = (splitArrays x) ++ (makeUniqueCondList xs)
+makeUniqueCondList xs = Prelude.concatMap splitArrays xs
 
 {-
 Description:Takes a list of MyValues - these will be either MyString or MyArrays containing MyStrings. If
@@ -199,7 +199,8 @@ Parameters: String, MyValue
 Returns: MyValue
 -}
 findKey :: String -> MyValue -> MyValue
-findKey key (MyObject obj) = snd $ Prelude.head $ L.filter (\(k, v) -> k == key) obj
+findKey key (MyObject obj) = snd $ Prelude.head $ L.filter (\(k, _) -> k == key) obj
+findKey _ _ = MyString "Error Finding Key"
 
 {-
 Description: Given MyArray of MyObjects, filters out any nested MyObjects with a given key
@@ -210,6 +211,7 @@ Returns: [MyValue]
 -}
 findConditions :: MyValue -> String -> [MyValue]
 findConditions (MyArray arr) key = L.map (findKey key) arr
+findConditions _ _ = [MyString "Error finding conditions"]
 
 {-
 Description: Takes a list of MyValues (i.e., the list of post- or pre-condition MyObjects
@@ -219,8 +221,8 @@ Returns: [[MyValue]]
 -}
 conditionsToList :: [MyValue] -> [[MyValue]]
 conditionsToList [] = []
-conditionsToList (MyObject x : xs) = [extractValues x] ++ conditionsToList xs
-conditionsToList (MyString x : xs) = conditionsToList xs
+conditionsToList (MyObject x : xs) = extractValues x : conditionsToList xs
+conditionsToList (MyString _ : xs) = conditionsToList xs
 conditionsToList _ = []
 
 {-
@@ -230,7 +232,7 @@ Returns: [MyValue]
 -}
 extractValues :: [(String, MyValue)] -> [MyValue]
 extractValues [] = []
-extractValues (x : xs) = [snd x] ++ extractValues xs
+extractValues xs = Prelude.foldr (\ x -> (++) [snd x]) [] xs
 
 {-
 Description: Converts a list of MyArrays to a list of lists of MyValues
@@ -239,8 +241,9 @@ Returns: [[MyValue]]
 -}
 convertToList :: [MyValue] -> [[MyValue]]
 convertToList [] = []
-convertToList ([MyArray arr]) = [arr]
-convertToList (MyArray arr : xs) = [arr] ++ convertToList xs
+convertToList [MyArray arr] = [arr]
+convertToList (MyArray arr : xs) = arr : convertToList xs
+convertToList _ = []
 
 {-
 Description: Extracts ther various states that each pre/post condition can have, and puts
@@ -252,7 +255,7 @@ Returns: [[MyValue]]
 extractStates :: [[MyValue]] -> [[MyValue]]
 extractStates [] = []
 extractStates [x] = [extractStates' x]
-extractStates (x : xs) = [extractStates' x] ++ extractStates xs
+extractStates (x : xs) = extractStates' x : extractStates xs
 
 {-
 Description: Helper function for extractStates which goes through each sublist 
@@ -263,7 +266,7 @@ Returns: [MyValue]
 extractStates' :: [MyValue] -> [MyValue]
 extractStates' [] = []
 extractStates' [x] = [findKey "name" x]
-extractStates' (x : xs) = [findKey "name" x] ++ extractStates' xs
+extractStates' (x : xs) = findKey "name" x : extractStates' xs
 
 {-
 Description: Gets all possible combinations of the different values that the pre/post condition
@@ -281,7 +284,7 @@ appear in the transition map, Thus, the maximal list needs to be
 reordered before being compared with the actual list
 -}
 reorderPostConditions :: [[MyValue]] -> [[MyValue]]
-reorderPostConditions xs = L.map (\(a:b:cs) -> b:a:cs) xs
+reorderPostConditions = L.map (\(a:b:cs) -> b:a:cs)
 
 {-
 The post conditions are defined in a different order to which they 
@@ -289,7 +292,7 @@ appear in the transition map, Thus, the maximal list needs to be
 reordered before being compared with the actual list
 -}
 reorderPreConditions :: [[MyValue]] -> [[MyValue]]
-reorderPreConditions xs = L.map (\(a:b:c:d:rest) -> a:c:d:b:rest) xs
+reorderPreConditions = L.map (\(a:b:c:d:rest) -> a:c:d:b:rest)
 
 {-
 Description: Takes two lists of lists of MyValues and checks to see if any of the sublists
@@ -301,7 +304,7 @@ Returns: [[MyValue]]
 -}
 removeMatchingSublists :: [[MyValue]] -> [[MyValue]] -> [[MyValue]]
 removeMatchingSublists listsToRemove fromLists =
-  Prelude.filter (\lst -> notElem lst listsToRemove) fromLists'
+  Prelude.filter (`notElem` listsToRemove) fromLists'
   where
     fromLists' = Prelude.foldl (\acc lst -> L.filter (not . match lst) acc) fromLists listsToRemove
     match [] [] = True
@@ -316,7 +319,7 @@ Parameters: [[MyValue]], [[MyValue]]
 Returns: Int
 -}
 getPercentageCoverage :: [[MyValue]] -> [[MyValue]] -> Int
-getPercentageCoverage condsNotCovered allConds = round (((fromIntegral (Prelude.length allConds - Prelude.length condsNotCovered)) / (fromIntegral (Prelude.length allConds))) * 100)
+getPercentageCoverage condsNotCovered allConds = round ((fromIntegral (Prelude.length allConds - Prelude.length condsNotCovered) / fromIntegral (Prelude.length allConds)) * 100)
 
 {-
 Description:
@@ -329,15 +332,16 @@ prettyPrintPreConds (a:xs) = prettyPrintPreConds' a ++ "\n\n" ++ prettyPrintPreC
 
 prettyPrintPreConds' :: [MyValue] -> String
 prettyPrintPreConds' [] = []
-prettyPrintPreConds' (MyString a : MyString b : MyString c : MyString d : xs) = "ID: " ++ show a ++ "\nReceiver State: " ++ show b ++ "\nSatisfy: " ++ show c ++ "\nSend: " ++ show d 
+prettyPrintPreConds' (MyString a : MyString b : MyString c : MyString d : _) = "ID: " ++ show a ++ "\nReceiver State: " ++ show b ++ "\nSatisfy: " ++ show c ++ "\nSend: " ++ show d 
+prettyPrintPreConds' _ = []
 
 prettyPrintPreCondsWithCode :: [[MyValue]] -> MyValue-> String
-prettyPrintPreCondsWithCode [] myVal= []
+prettyPrintPreCondsWithCode [] _= []
 prettyPrintPreCondsWithCode (a:xs) myVal = prettyPrintPreCondsWithCode' a myVal ++ "\n\n" ++ prettyPrintPreCondsWithCode xs myVal
 
 prettyPrintPreCondsWithCode' :: [MyValue] -> MyValue -> String
-prettyPrintPreCondsWithCode' [] myVal = "Empty list of Pre Conditions" 
-prettyPrintPreCondsWithCode' (MyString idCond : MyString receiverCond : MyString  satisfyCond : MyString sendCond : xs) myVal = "ID: " ++ show idCond ++ "\nReceiver State: " ++ show receiverCond ++ "\nSatisfy: " ++ show satisfyCond ++ "\nSend: " ++ show sendCond ++ "\n" ++  (getCondCode "Id" idCond "pre-conditions" myVal ++ getCondCode "ReceiverState" receiverCond "pre-conditions" myVal ++ getCondCode "Satisfy" satisfyCond "pre-conditions" myVal ++ getCondCode "Send" sendCond "pre-conditions" myVal)
+prettyPrintPreCondsWithCode' [] _ = "Empty list of Pre Conditions" 
+prettyPrintPreCondsWithCode' (MyString idCond : MyString receiverCond : MyString  satisfyCond : MyString sendCond : _) myVal = "ID: " ++ show idCond ++ "\nReceiver State: " ++ show receiverCond ++ "\nSatisfy: " ++ show satisfyCond ++ "\nSend: " ++ show sendCond ++ "\n" ++  (getCondCode "Id" idCond "pre-conditions" myVal ++ getCondCode "ReceiverState" receiverCond "pre-conditions" myVal ++ getCondCode "Satisfy" satisfyCond "pre-conditions" myVal ++ getCondCode "Send" sendCond "pre-conditions" myVal)
 prettyPrintPreCondsWithCode' _ _ = "Error Printing Pre Condition code"
 
 {-
@@ -351,44 +355,47 @@ prettyPrintPostConds (a:xs) = prettyPrintPostConds' a ++ "\n\n" ++ prettyPrintPo
 
 prettyPrintPostConds' :: [MyValue] -> String
 prettyPrintPostConds' [] = []
-prettyPrintPostConds' (MyString a : MyString b: MyString c : xs) = "Receive Status: " ++ show a ++ "\nSend Status: " ++ show b ++ "\nSender Pre-emption: " ++ show c
+prettyPrintPostConds' (MyString a : MyString b: MyString c : _) = "Receive Status: " ++ show a ++ "\nSend Status: " ++ show b ++ "\nSender Pre-emption: " ++ show c
 prettyPrintPostConds' _ = []
 
 prettyPrintPostCondsWithCode :: [[MyValue]] -> MyValue-> String
-prettyPrintPostCondsWithCode [] myVal= []
+prettyPrintPostCondsWithCode [] _ = []
 prettyPrintPostCondsWithCode (a:xs) myVal = prettyPrintPostCondsWithCode' a myVal ++ "\n\n" ++ prettyPrintPostCondsWithCode xs myVal
 
 prettyPrintPostCondsWithCode' :: [MyValue] -> MyValue -> String
-prettyPrintPostCondsWithCode' [] myVal = "Empty list of Pre Conditions" 
-prettyPrintPostCondsWithCode' (MyString receiveCond : MyString sendCond : MyString  senderPreCond : xs) myVal = "Receive Status: " ++ show receiveCond ++ "\nSend Status: " ++ show sendCond ++ "\nSender Pre-emption: " ++ show senderPreCond ++ "\n" ++ (getCondCode "ReceiveStatus" receiveCond "post-conditions" myVal ++ getCondCode "SendStatus" sendCond "post-conditions" myVal ++ getCondCode "SenderPreemption" senderPreCond "post-conditions" myVal)
+prettyPrintPostCondsWithCode' [] _ = "Empty list of Pre Conditions" 
+prettyPrintPostCondsWithCode' (MyString receiveCond : MyString sendCond : MyString  senderPreCond : _) myVal = "Receive Status: " ++ show receiveCond ++ "\nSend Status: " ++ show sendCond ++ "\nSender Pre-emption: " ++ show senderPreCond ++ "\n" ++ (getCondCode "ReceiveStatus" receiveCond "post-conditions" myVal ++ getCondCode "SendStatus" sendCond "post-conditions" myVal ++ getCondCode "SenderPreemption" senderPreCond "post-conditions" myVal)
 prettyPrintPostCondsWithCode' _ _ = "Error Printing Pre Condition code"
 
 getCondCode :: String -> String -> String -> MyValue -> String
-getCondCode condName condState preOrPost myVal = fromMyStringToString (snd ((Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condState)) listToSearch))!!1)) where 
-    listToSearch = fromMyObjectToList (fromMyArrayToList (snd ((getSpecifiedCond condName preOrPost myVal)!!1)))
+getCondCode condName condState preOrPost myVal = fromMyStringToString (snd (Prelude.head (L.filter (\x -> Prelude.head x == ("name", MyString condState)) listToSearch)!!1)) where 
+    listToSearch = fromMyObjectToList (fromMyArrayToList (snd (getSpecifiedCond condName preOrPost myVal!!1)))
 
 getSpecifiedCond :: String -> String -> MyValue -> [(String, MyValue)]
-getSpecifiedCond condName preOrPost myVal = Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condName)) listToSearch) where 
+getSpecifiedCond condName preOrPost myVal = Prelude.head (L.filter (\x -> Prelude.head x == ("name", MyString condName)) listToSearch) where 
     listToSearch = fromMyObjectMyArrayToList preOrPost myVal
 
 getSpecifiedCond' :: String -> [[(String, MyValue)]] -> [(String, MyValue)]
-getSpecifiedCond' condName myValList = Prelude.head (L.filter (\x -> (Prelude.head x) == ("name", MyString condName)) myValList)
+getSpecifiedCond' condName myValList = Prelude.head (L.filter (\x -> Prelude.head x == ("name", MyString condName)) myValList)
 
 fromMyObjectMyArrayToList :: String -> MyValue -> [[(String, MyValue)]]
 fromMyObjectMyArrayToList str myVal = fromMyObjectToList (fromMyArrayToList (findKey str myVal))
 
 fromMyArrayToList :: MyValue -> [MyValue]
 fromMyArrayToList (MyArray arr) = arr 
+fromMyArrayToList _ = [MyString "Conversion from MyArray to List failed"]
 
 fromMyObjectToList :: [MyValue] -> [[(String, MyValue)]]
 fromMyObjectToList [] = []
-fromMyObjectToList (x : xs) = [fromMyObjectToList' x] ++ fromMyObjectToList xs
+fromMyObjectToList xs = Prelude.foldr (\x -> (++) [fromMyObjectToList' x]) [] xs
 
 fromMyObjectToList' :: MyValue -> [(String, MyValue)]
 fromMyObjectToList' (MyObject obj) = obj
+fromMyObjectToList' _ = [("Error", MyString "Conversion from MyObject to List failed.")]
 
 fromMyStringToString :: MyValue -> String
 fromMyStringToString (MyString str) = str
+fromMyStringToString _ = "Error - not a MyString"
 
 {-
 Description:
@@ -398,9 +405,9 @@ Returns:
 parseArgs :: [String] -> [(String, [String])]
 parseArgs [] = []
 parseArgs (flag:args) =
-  case Prelude.span (not . isFlag) args of
-    ([], rest) -> [(flag, [])] ++ parseArgs rest
-    (params, rest) -> [(flag, params)] ++ parseArgs rest
+  case Prelude.break isFlag args of
+    ([], rest) -> (flag, []) : parseArgs rest
+    (params, rest) -> (flag, params) : parseArgs rest
   where isFlag str = Prelude.take 2 str == "--"
 
 {-
@@ -409,17 +416,16 @@ Parameters:
 Returns:
 -}
 processArgs :: [(String, [String])] -> MyValue -> String
-processArgs xs myVal = Prelude.foldl (\acc x -> acc ++ (cmdFunc x myVal)) "" xs
+processArgs xs myVal = Prelude.foldl (\acc x -> acc ++ cmdFunc x myVal) "" xs
 
 cmdFunc :: (String, [String]) -> MyValue -> String
-cmdFunc x myVal = case fst x of "--prettyprint" -> "prettyprint function\n"
-                                "--preconds" -> "Pre Conditions function\n"
-                                "--postconds" -> "Post Conditions function\n"
+cmdFunc x myVal = case fst x of "--prettyprint" -> handlePrettyPrint (snd x) myVal
+                                "--preconds" -> handlePreConds (snd x) myVal
+                                "--postconds" -> handlePostConds (snd x) myVal
                                 _ -> "Error - input not recognised"
 
 handlePrettyPrint :: [String] -> MyValue -> String
 handlePrettyPrint xs myVal = Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs
-handlePrettyPrint [] myVal = prettyPrint myVal
 
 handlePrettyPrint' :: String -> MyValue -> String
 handlePrettyPrint' str obj = prettyPrint $ myObjectSpecificFields [str] obj
@@ -428,16 +434,16 @@ handlePreConds :: [String] -> MyValue -> String
 handlePreConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePreConds' x myVal) "" xs
 
 handlePreConds' :: String -> MyValue -> String
-handlePreConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent (myVal)) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions (myVal)) (getMaxPreConditions (myVal)))
-handlePreConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent (myVal)) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions (myVal)) (getMaxPreConditions (myVal))) myVal
+handlePreConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal))
+handlePreConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) myVal
 handlePreConds' _ _ = "Error"
 
 handlePostConds :: [String] -> MyValue -> String
 handlePostConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePostConds' x myVal) "" xs
 
 handlePostConds' :: String -> MyValue -> String
-handlePostConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent (myVal)) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions (myVal)) (getMaxPostConditions (myVal)))
-handlePostConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent (myVal)) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions (myVal)) (getMaxPostConditions (myVal))) myVal
+handlePostConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal))
+handlePostConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal
 handlePostConds' _ _ = "Error"   
 
 -- Check that all post/pre condition variations (combinations) are covered

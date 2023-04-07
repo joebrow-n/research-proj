@@ -16,17 +16,20 @@ main = do
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            putStrLn $ "--------------------------------------------------------------"
-            putStrLn $ "File being processed: " ++ show fileName
-            putStr $ "--------------------------------------------------------------"
-            putStr $ "\nReadable file format:\n"
-            putStrLn $ MV.prettyPrint (MV.toMyValue a)
-            putStrLn $ "--------------------------------------------------------------"
-            putStr $ "Percentage coverage of pre conditions: " ++ show (MV.getPreCondPercent (MV.toMyValue a)) ++ "%\n"
-            putStr $ MV.prettyPrintPreConds (MV.removeMatchingSublists (MV.getPreConditions (MV.toMyValue a)) (MV.getMaxPreConditions (MV.toMyValue a)))
-            putStrLn $ "--------------------------------------------------------------"
-            putStr $ "Percentage coverage of post conditions: " ++ show (MV.getPostCondPercent (MV.toMyValue a)) ++ "%\n"
-            putStr $ MV.prettyPrintPostConds (MV.removeMatchingSublists (MV.getPostConditions (MV.toMyValue a)) (MV.getMaxPostConditions (MV.toMyValue a)))
-            putStrLn $ "--------------------------------------------------------------"
+        --     putStrLn $ "--------------------------------------------------------------"
+        --     putStrLn $ "File being processed: " ++ show fileName
+        --     putStr $ "--------------------------------------------------------------"
+        --     putStr $ "\nReadable file format:\n"
+        --     putStrLn $ MV.prettyPrint (MV.toMyValue a)
+        --     putStrLn $ "--------------------------------------------------------------"
+        --     putStr $ "Percentage coverage of pre conditions: " ++ show (MV.getPreCondPercent (MV.toMyValue a)) ++ "%\n"
+        --     putStr $ MV.prettyPrintPreConds (MV.removeMatchingSublists (MV.getPreConditions (MV.toMyValue a)) (MV.getMaxPreConditions (MV.toMyValue a)))
+        --     putStrLn $ "--------------------------------------------------------------"
+        --     putStr $ "Percentage coverage of post conditions: " ++ show (MV.getPostCondPercent (MV.toMyValue a)) ++ "%\n"
+        --     putStr $ MV.prettyPrintPostConds (MV.removeMatchingSublists (MV.getPostConditions (MV.toMyValue a)) (MV.getMaxPostConditions (MV.toMyValue a)))
+        --     putStrLn $ "--------------------------------------------------------------"
+            let myVal = MV.toMyValue a
+            let parsedArgs = MV.parseArgs (Prelude.tail args)
+            putStr $ MV.processArgs parsedArgs myVal
         Nothing -> putStrLn "Error"
     putStrLn " "
