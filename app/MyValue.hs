@@ -1,7 +1,6 @@
 module MyValue where
 
 import Data.Text
--- import Data.Typeable
 import Data.Yaml as Y
 import System.Environment
 import qualified Data.ByteString.Char8 as BS
@@ -86,15 +85,26 @@ topLevelFunction = do
         Nothing -> putStrLn "Error"
     putStrLn " "
 
+{-
+Description:
+Parameters:
+Returns:
+-}
 handleError :: IOException -> IO BS.ByteString
 handleError e = do
     putStrLn inputErrorMessage
     exitFailure
 
+{-
+Description:
+Parameters:
+Returns:
+-}
 inputErrorCheck :: String -> String
 inputErrorCheck str = if "Error - input not recognised" `L.isInfixOf` str
     then inputErrorMessage
     else str
+
 {-
 Description: checks the item type and prints message based on that
 Parameters: MyValue 
@@ -575,9 +585,3 @@ handlePostConds' :: String -> MyValue -> String
 handlePostConds' "coverage" myVal = "Percentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\nUnsatsisfied post conditions:\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) ++ "--------------------------------------------------------------\n"
 handlePostConds' "test-code" myVal = "Percentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\nUnsatsisfied post conditions with test code:\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal ++ "--------------------------------------------------------------\n"
 handlePostConds' _ _ = "Error - input not recognised"   
-
-
--- Check that all post/pre condition variations (combinations) are covered
--- Estimate how many different combinations there are (how many entries will be in the maximal list)
--- Being able to follow links within around the directory
--- Given type, follow relevant links to other 
