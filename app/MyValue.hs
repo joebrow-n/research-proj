@@ -10,6 +10,30 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as MS
 import qualified Data.Scientific as S
 import qualified Data.Vector as V
+import Control.Exception (catch, IOException)
+import System.Exit (exitFailure)
+
+inputErrorMessage :: String
+inputErrorMessage = "hCode Usage: \n\
+    \\tFirst argument: file name to be processed (send-receive.yml)\n\n\
+    \\t--prettyprint: \n\
+    \\t\tDescription:\tPretty prints file or specified segments of file\n\
+    \\t\tParameters:\tNo Parameters:          - prints entire file\n\
+    \\t\t\t\t\"file\"\t\t\t- prints entire file\n\
+	\\t\t\t\t\"post-conditions\"\t- prints post-conditions segment\n\
+	\\t\t\t\t\"pre-conditions\"\t- prints pre-conditions segment\n\
+	\\t\t\t\tTop-level item name\t- prints item with this name from file\n\
+    \\t--preconds: \n\
+    \\t\tDescription:\tPrints details about pre-conditions\n\
+    \\t\tParameters:\tNo Parameters:  - Prints % coverage of pre-conditions\n\
+    \\t\t\t\t\"coverage\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered\n\
+	\\t\t\t\t\"test-code\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered and test code\n\
+    \\t--postconds: \n\
+    \\t\tDescription:\tPrints details about post-conditions\n\
+    \\t\tParameters:\tNo Parameters:  - Prints % coverage of post-conditions\n\
+    \\t\t\t\t\"coverage\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered\n\
+	\\t\t\t\t\"test-code\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered and test code\n\n\
+    \\tExample usage: \"hCode send-receive.yml --prettyprint pre-conditions --postconds test-code\""
 
 data MyValue
   = MyObject [(String, MyValue)]
@@ -51,19 +75,26 @@ topLevelFunction :: IO ()
 topLevelFunction = do
     args <- getArgs
     let fileName = Prelude.head args
-    content <- BS.readFile fileName
+    content <- catch (BS.readFile fileName) handleError
     let yamlData = decodeThrow content :: Maybe Value
     case yamlData of 
         Just a -> do
-            putStrLn "--------------------------------------------------------------"
-            putStrLn $ "File being processed: " ++ show fileName
-            putStr "--------------------------------------------------------------\n"
             let myVal = toMyValue a
             let parsedArgs = parseArgs (Prelude.tail args)
-            putStr $ processArgs parsedArgs myVal
+            let printString = "--------------------------------------------------------------\n" ++ "File being processed: " ++ show fileName ++ "\n--------------------------------------------------------------\n" ++ processArgs parsedArgs myVal
+            putStr $ inputErrorCheck printString
         Nothing -> putStrLn "Error"
     putStrLn " "
 
+handleError :: IOException -> IO BS.ByteString
+handleError e = do
+    putStrLn inputErrorMessage
+    exitFailure
+
+inputErrorCheck :: String -> String
+inputErrorCheck str = if "Error - input not recognised" `L.isInfixOf` str
+    then inputErrorMessage
+    else str
 {-
 Description: checks the item type and prints message based on that
 Parameters: MyValue 
@@ -102,17 +133,27 @@ Parameters: MyValue
 Returns: String
 -}
 prettyPrint :: MyValue -> String
-prettyPrint (MyObject obj) = "{\n" ++ Prelude.concatMap (\(k, v) -> "  " ++ "- " ++ k ++ ": " ++ prettyPrint' v) obj ++ "  }"
-  where prettyPrint' v = Prelude.unlines $ Prelude.map ("" ++) $ Prelude.lines $ prettyPrint v
-prettyPrint (MyArray arr) = "[\n" ++ Prelude.concatMap (\v -> "  " ++ prettyPrint' v) arr ++ "  ]"
-  where prettyPrint' v = Prelude.unlines $ Prelude.map (Prelude.replicate 2 ' ' ++) $ Prelude.lines $ prettyPrint v
-prettyPrint (MyString s) =
-  let ls = Prelude.lines s
-      indent = Prelude.replicate 2 ' '
-  in Prelude.unlines $ Prelude.map (\l -> "  " ++ indent ++ l) ls
-prettyPrint (MyNumber n) = show n
-prettyPrint (MyBool b) = if b then "true" else "false"
-prettyPrint MyNull = "null"
+prettyPrint = go 0
+  where
+    indent n = Prelude.replicate (n * 2) ' '
+    go n (MyObject fields) =
+      "{\n" ++
+      Prelude.concatMap (\(k,v) -> indent (n+1) ++ k ++ ": " ++ go (n+1) v ++ "\n") fields ++
+      indent n ++ "}"
+    go n (MyArray items) =
+      "[\n" ++
+      Prelude.concatMap (\v -> indent (n+1) ++ go (n+1) v ++ "\n") items ++
+      indent n ++ "]"
+    go n (MyString s) = 
+        if Prelude.length (Prelude.lines s) == 1
+            then s
+            else "\n" ++ printEach (n+1) (Prelude.lines s) where
+                printEach i (x:xs) = indent i ++ x ++ "\n" ++ printEach i xs
+                printEach i [] = []
+    go _ (MyNumber x) = show x
+    go _ (MyBool True) = "true"
+    go _ (MyBool False) = "false"
+    go _ MyNull = "null"
 
 {-
 Description: moves a given key to the top of an object
@@ -146,7 +187,10 @@ Parameters: [String] (Might be obtained from commandline arguments), MyValue (My
 Returns: MyValue
 -}
 myObjectSpecificFields :: [String] -> MyValue -> MyValue
-myObjectSpecificFields keys (MyObject obj) = MyObject $ L.filter (\(k, _) -> k `L.elem` keys) obj
+myObjectSpecificFields keys (MyObject obj) = 
+    if Prelude.any (\ (k, _) -> k `L.elem` keys) obj
+        then MyObject $ L.filter (\(k, _) -> k `L.elem` keys) obj
+        else MyString "Error - input not recognised"
 myObjectSpecificFields _ _ = MyString "Error finding Specific Key from Object"
 
 {-
@@ -493,12 +537,17 @@ Parameters:
 Returns:
 -}
 handlePrettyPrint :: [String] -> MyValue -> String
-handlePrettyPrint xs myVal = Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs ++ "\n--------------------------------------------------------------"
+handlePrettyPrint xs myVal = 
+    if Prelude.null xs
+        then prettyPrint myVal ++ "\n--------------------------------------------------------------"
+        else Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs 
+
 
 handlePrettyPrint' :: String -> MyValue -> String
-handlePrettyPrint' "post-conditions" obj = prettyPrint $ myObjectSpecificFields ["post-conditions"] obj
-handlePrettyPrint' "pre-conditions" obj = prettyPrint $ myObjectSpecificFields ["pre-conditions"] obj
-handlePrettyPrint' "file" obj = prettyPrint obj
+handlePrettyPrint' str obj = 
+    if str == "file"
+        then "File printed in readable format:\n" ++ prettyPrint obj ++ "\n--------------------------------------------------------------\n"
+        else str ++ " segment of the file printed in readable format: \n" ++ prettyPrint (myObjectSpecificFields [str] obj) ++ "\n--------------------------------------------------------------\n"
 
 {-
 Description:
@@ -506,20 +555,26 @@ Parameters:
 Returns:
 -}
 handlePreConds :: [String] -> MyValue -> String
-handlePreConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePreConds' x myVal) "" xs
+handlePreConds xs myVal = 
+    if Prelude.null xs 
+        then "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n"  ++ "--------------------------------------------------------------\n"
+        else Prelude.foldl (\acc x -> acc ++ handlePreConds' x myVal) "" xs
 
 handlePreConds' :: String -> MyValue -> String
-handlePreConds' "coverage" myVal = "\nPercentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) ++ "--------------------------------------------------------------"
-handlePreConds' "test-code" myVal = "\nPercentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) myVal ++ "--------------------------------------------------------------"
-handlePreConds' _ _ = "Error"
+handlePreConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\nUnsatsisfied pre conditions:\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) ++ "--------------------------------------------------------------\n"
+handlePreConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\nUnsatsisfied pre conditions with test code:\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) myVal ++ "--------------------------------------------------------------\n"
+handlePreConds' _ _ = "Error - input not recognised"
 
 handlePostConds :: [String] -> MyValue -> String
-handlePostConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePostConds' x myVal) "" xs
+handlePostConds xs myVal = 
+    if Prelude.null xs 
+        then "Percentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\n"  ++ "--------------------------------------------------------------\n"
+        else Prelude.foldl (\acc x -> acc ++ handlePostConds' x myVal) "" xs
 
 handlePostConds' :: String -> MyValue -> String
-handlePostConds' "coverage" myVal = "\nPercentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) ++ "--------------------------------------------------------------"
-handlePostConds' "test-code" myVal = "\nPercentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal ++ "--------------------------------------------------------------"
-handlePostConds' _ _ = "Error"   
+handlePostConds' "coverage" myVal = "Percentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\nUnsatsisfied post conditions:\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) ++ "--------------------------------------------------------------\n"
+handlePostConds' "test-code" myVal = "Percentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\nUnsatsisfied post conditions with test code:\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal ++ "--------------------------------------------------------------\n"
+handlePostConds' _ _ = "Error - input not recognised"   
 
 
 -- Check that all post/pre condition variations (combinations) are covered
