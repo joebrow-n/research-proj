@@ -3,7 +3,8 @@ module MyValue where
 import Data.Text
 -- import Data.Typeable
 import Data.Yaml as Y
-
+import System.Environment
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.Aeson.KeyMap as AKM
 import qualified Data.List as L
 import qualified Data.Map.Strict as MS
@@ -40,6 +41,28 @@ toMyValue' (String str) = MyString $ unpack str
 toMyValue' (Number num) = MyNumber (S.toRealFloat num)
 toMyValue' (Bool bool) = MyBool bool
 toMyValue' Null = MyNull
+
+{-
+Description:
+Parameters:
+Returns:
+-}
+topLevelFunction :: IO ()
+topLevelFunction = do
+    args <- getArgs
+    let fileName = Prelude.head args
+    content <- BS.readFile fileName
+    let yamlData = decodeThrow content :: Maybe Value
+    case yamlData of 
+        Just a -> do
+            putStrLn "--------------------------------------------------------------"
+            putStrLn $ "File being processed: " ++ show fileName
+            putStr "--------------------------------------------------------------\n"
+            let myVal = toMyValue a
+            let parsedArgs = parseArgs (Prelude.tail args)
+            putStr $ processArgs parsedArgs myVal
+        Nothing -> putStrLn "Error"
+    putStrLn " "
 
 {-
 Description: checks the item type and prints message based on that
@@ -337,7 +360,7 @@ prettyPrintPreConds (a:xs) = prettyPrintPreConds' a ++ "\n\n" ++ prettyPrintPreC
 
 prettyPrintPreConds' :: [MyValue] -> String
 prettyPrintPreConds' [] = []
-prettyPrintPreConds' (MyString a : MyString b : MyString c : MyString d : _) = "ID: " ++ show a ++ "\nReceiver State: " ++ show b ++ "\nSatisfy: " ++ show c ++ "\nSend: " ++ show d 
+prettyPrintPreConds' (MyString a : MyString b : MyString c : MyString d : _) = "-------------------------------\n\nID: " ++ show a ++ "\nReceiver State:\t" ++ show b ++ "\nSatisfy:\t" ++ show c ++ "\nSend:\t" ++ show d 
 prettyPrintPreConds' _ = []
 
 {-
@@ -351,7 +374,7 @@ prettyPrintPreCondsWithCode (a:xs) myVal = prettyPrintPreCondsWithCode' a myVal 
 
 prettyPrintPreCondsWithCode' :: [MyValue] -> MyValue -> String
 prettyPrintPreCondsWithCode' [] _ = "Empty list of Pre Conditions" 
-prettyPrintPreCondsWithCode' (MyString idCond : MyString receiverCond : MyString  satisfyCond : MyString sendCond : _) myVal = "ID: " ++ show idCond ++ "\nReceiver State: " ++ show receiverCond ++ "\nSatisfy: " ++ show satisfyCond ++ "\nSend: " ++ show sendCond ++ "\n" ++  (getCondCode "Id" idCond "pre-conditions" myVal ++ getCondCode "ReceiverState" receiverCond "pre-conditions" myVal ++ getCondCode "Satisfy" satisfyCond "pre-conditions" myVal ++ getCondCode "Send" sendCond "pre-conditions" myVal)
+prettyPrintPreCondsWithCode' (MyString idCond : MyString receiverCond : MyString  satisfyCond : MyString sendCond : _) myVal = "-------------------------------\n\nID:\t" ++ show idCond ++ "\nReceiver State:\t" ++ show receiverCond ++ "\nSatisfy:\t" ++ show satisfyCond ++ "\nSend:\t" ++ show sendCond ++ "\n\n" ++  (getCondCode "Id" idCond "pre-conditions" myVal ++ getCondCode "ReceiverState" receiverCond "pre-conditions" myVal ++ getCondCode "Satisfy" satisfyCond "pre-conditions" myVal ++ getCondCode "Send" sendCond "pre-conditions" myVal)
 prettyPrintPreCondsWithCode' _ _ = "Error Printing Pre Condition code"
 
 {-
@@ -365,7 +388,7 @@ prettyPrintPostConds (a:xs) = prettyPrintPostConds' a ++ "\n\n" ++ prettyPrintPo
 
 prettyPrintPostConds' :: [MyValue] -> String
 prettyPrintPostConds' [] = []
-prettyPrintPostConds' (MyString a : MyString b: MyString c : _) = "Receive Status: " ++ show a ++ "\nSend Status: " ++ show b ++ "\nSender Pre-emption: " ++ show c
+prettyPrintPostConds' (MyString a : MyString b: MyString c : _) = "-------------------------------\n\nReceive Status:\t\t" ++ show a ++ "\nSend Status:\t\t" ++ show b ++ "\nSender Pre-emption:\t" ++ show c
 prettyPrintPostConds' _ = []
 
 {-
@@ -379,7 +402,7 @@ prettyPrintPostCondsWithCode (a:xs) myVal = prettyPrintPostCondsWithCode' a myVa
 
 prettyPrintPostCondsWithCode' :: [MyValue] -> MyValue -> String
 prettyPrintPostCondsWithCode' [] _ = "Empty list of Pre Conditions" 
-prettyPrintPostCondsWithCode' (MyString receiveCond : MyString sendCond : MyString  senderPreCond : _) myVal = "Receive Status: " ++ show receiveCond ++ "\nSend Status: " ++ show sendCond ++ "\nSender Pre-emption: " ++ show senderPreCond ++ "\n" ++ (getCondCode "ReceiveStatus" receiveCond "post-conditions" myVal ++ getCondCode "SendStatus" sendCond "post-conditions" myVal ++ getCondCode "SenderPreemption" senderPreCond "post-conditions" myVal)
+prettyPrintPostCondsWithCode' (MyString receiveCond : MyString sendCond : MyString  senderPreCond : _) myVal = "-------------------------------\n\nReceive Status:\t\t" ++ show receiveCond ++ "\nSend Status:\t\t" ++ show sendCond ++ "\nSender Pre-emption:\t" ++ show senderPreCond ++ "\n\n" ++ (getCondCode "ReceiveStatus" receiveCond "post-conditions" myVal ++ getCondCode "SendStatus" sendCond "post-conditions" myVal ++ getCondCode "SenderPreemption" senderPreCond "post-conditions" myVal)
 prettyPrintPostCondsWithCode' _ _ = "Error Printing Pre Condition code"
 
 {-
@@ -470,10 +493,12 @@ Parameters:
 Returns:
 -}
 handlePrettyPrint :: [String] -> MyValue -> String
-handlePrettyPrint xs myVal = Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs
+handlePrettyPrint xs myVal = Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs ++ "\n--------------------------------------------------------------"
 
 handlePrettyPrint' :: String -> MyValue -> String
-handlePrettyPrint' str obj = prettyPrint $ myObjectSpecificFields [str] obj
+handlePrettyPrint' "post-conditions" obj = prettyPrint $ myObjectSpecificFields ["post-conditions"] obj
+handlePrettyPrint' "pre-conditions" obj = prettyPrint $ myObjectSpecificFields ["pre-conditions"] obj
+handlePrettyPrint' "file" obj = prettyPrint obj
 
 {-
 Description:
@@ -484,16 +509,16 @@ handlePreConds :: [String] -> MyValue -> String
 handlePreConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePreConds' x myVal) "" xs
 
 handlePreConds' :: String -> MyValue -> String
-handlePreConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal))
-handlePreConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) myVal
+handlePreConds' "coverage" myVal = "\nPercentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreConds (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) ++ "--------------------------------------------------------------"
+handlePreConds' "test-code" myVal = "\nPercentage coverage of pre conditions: " ++ show (getPreCondPercent myVal) ++ "%\n" ++ prettyPrintPreCondsWithCode (removeMatchingSublists (getPreConditions myVal) (getMaxPreConditions myVal)) myVal ++ "--------------------------------------------------------------"
 handlePreConds' _ _ = "Error"
 
 handlePostConds :: [String] -> MyValue -> String
 handlePostConds xs myVal = Prelude.foldl (\acc x -> acc ++ handlePostConds' x myVal) "" xs
 
 handlePostConds' :: String -> MyValue -> String
-handlePostConds' "coverage" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal))
-handlePostConds' "test-code" myVal = "Percentage coverage of pre conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal
+handlePostConds' "coverage" myVal = "\nPercentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostConds (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) ++ "--------------------------------------------------------------"
+handlePostConds' "test-code" myVal = "\nPercentage coverage of post conditions: " ++ show (getPostCondPercent myVal) ++ "%\n" ++ prettyPrintPostCondsWithCode (removeMatchingSublists (getPostConditions myVal) (getMaxPostConditions myVal)) myVal ++ "--------------------------------------------------------------"
 handlePostConds' _ _ = "Error"   
 
 
