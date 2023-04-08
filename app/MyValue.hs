@@ -1,4 +1,4 @@
-module MyValue where
+module MyValue (analyseFile) where
 
 import Data.Text
 import Data.Yaml as Y
@@ -70,8 +70,8 @@ Description:
 Parameters:
 Returns:
 -}
-topLevelFunction :: IO ()
-topLevelFunction = do
+analyseFile :: IO ()
+analyseFile = do
     args <- getArgs
     let fileName = Prelude.head args
     content <- catch (BS.readFile fileName) handleError
@@ -476,9 +476,6 @@ Returns:
 getSpecifiedCond :: String -> String -> MyValue -> [(String, MyValue)]
 getSpecifiedCond condName preOrPost myVal = Prelude.head (L.filter (\x -> Prelude.head x == ("name", MyString condName)) listToSearch) where 
     listToSearch = fromMyObjectMyArrayToList preOrPost myVal
-
-getSpecifiedCond' :: String -> [[(String, MyValue)]] -> [(String, MyValue)]
-getSpecifiedCond' condName myValList = Prelude.head (L.filter (\x -> Prelude.head x == ("name", MyString condName)) myValList)
 
 {-
 Description:
