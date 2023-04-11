@@ -24,11 +24,13 @@ inputErrorMessage = "hCode Usage: \n\
 	\\t\t\t\tTop-level item name\t- prints item with this name from file\n\
     \\t--preconds: \n\
     \\t\tDescription:\tPrints details about pre-conditions\n\
+    \\t\t\t\tOnly works on files in which pre-conditions exist\n\
     \\t\tParameters:\tNo Parameters:  - Prints % coverage of pre-conditions\n\
     \\t\t\t\t\"coverage\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered\n\
 	\\t\t\t\t\"test-code\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered and test code\n\
     \\t--postconds: \n\
     \\t\tDescription:\tPrints details about post-conditions\n\
+    \\t\t\t\tOnly works on files in which post-conditions exist\n\
     \\t\tParameters:\tNo Parameters:  - Prints % coverage of post-conditions\n\
     \\t\t\t\t\"coverage\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered\n\
 	\\t\t\t\t\"test-code\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered and test code\n\n\
@@ -80,8 +82,15 @@ analyseFile = do
         Just a -> do
             let myVal = toMyValue a
             let parsedArgs = parseArgs (Prelude.tail args)
-            let printString = "--------------------------------------------------------------\n" ++ "File being processed: " ++ show fileName ++ "\n--------------------------------------------------------------\n" ++ processArgs parsedArgs myVal
-            putStr $ inputErrorCheck printString
+            if Prelude.null parsedArgs
+                then 
+                    do
+                        putStr $ "\nError: No parameters\n\n" ++ inputErrorMessage
+                        exitFailure
+                else 
+                    do 
+                        let printString = "--------------------------------------------------------------\n" ++ "File being processed: " ++ show fileName ++ "\n--------------------------------------------------------------\n" ++ processArgs parsedArgs myVal
+                        putStr $ inputErrorCheck printString
         Nothing -> putStrLn "Error"
     putStrLn " "
 
@@ -92,8 +101,10 @@ Returns:
 -}
 handleError :: IOException -> IO BS.ByteString
 handleError e = do
-    putStrLn inputErrorMessage
+    putStr "\nError: Specified file does not exist.\n\n"
+    putStr inputErrorMessage
     exitFailure
+
 
 {-
 Description:
@@ -546,7 +557,7 @@ Returns:
 handlePrettyPrint :: [String] -> MyValue -> String
 handlePrettyPrint xs myVal = 
     if Prelude.null xs
-        then prettyPrint myVal ++ "\n--------------------------------------------------------------"
+        then "File printed in readable format:\n" ++ prettyPrint myVal ++ "\n--------------------------------------------------------------\n"
         else Prelude.foldl (\acc x -> acc ++ handlePrettyPrint' x myVal) "" xs 
 
 
