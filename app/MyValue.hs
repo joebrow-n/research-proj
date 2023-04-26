@@ -14,27 +14,27 @@ import System.Exit (exitFailure)
 
 inputErrorMessage :: String
 inputErrorMessage = "hCode Usage: \n\
-    \\tFirst argument: file name to be processed (send-receive.yml)\n\n\
-    \\t--prettyprint: \n\
-    \\t\tDescription:\tPretty prints file or specified segments of file\n\
-    \\t\tParameters:\tNo Parameters:          - prints entire file\n\
-    \\t\t\t\t\"file\"\t\t\t- prints entire file\n\
-	\\t\t\t\t\"post-conditions\"\t- prints post-conditions segment\n\
-	\\t\t\t\t\"pre-conditions\"\t- prints pre-conditions segment\n\
-	\\t\t\t\tTop-level item name\t- prints item with this name from file\n\
-    \\t--preconds: \n\
-    \\t\tDescription:\tPrints details about pre-conditions\n\
-    \\t\t\t\tOnly works on files in which pre-conditions exist\n\
-    \\t\tParameters:\tNo Parameters:  - Prints % coverage of pre-conditions\n\
-    \\t\t\t\t\"coverage\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered\n\
-	\\t\t\t\t\"test-code\"\t- prints % coverage of pre-conditions with list\n\t\t\t\t\t\t  of pre-conditions not covered and test code\n\
-    \\t--postconds: \n\
-    \\t\tDescription:\tPrints details about post-conditions\n\
-    \\t\t\t\tOnly works on files in which post-conditions exist\n\
-    \\t\tParameters:\tNo Parameters:  - Prints % coverage of post-conditions\n\
-    \\t\t\t\t\"coverage\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered\n\
-	\\t\t\t\t\"test-code\"\t- prints % coverage of post-conditions with list\n\t\t\t\t\t\t  of post-conditions not covered and test code\n\n\
-    \\tExample usage: \"hCode send-receive.yml --prettyprint pre-conditions --postconds test-code\""
+    \  First argument: file name to be processed (send-receive.yml)\n\n\
+    \  --prettyprint: \n\
+    \    Description: Pretty prints file or specified segments of file\n\
+    \    Parameters:  No Parameters:       - prints entire file\n\
+    \                 \"file\"               - prints entire file\n\
+	\                 \"post-conditions\"    - prints post-conditions segment\n\
+	\                 \"pre-conditions\"     - prints pre-conditions segment\n\
+	\                 Top-level item name  - prints item with this name from file\n\
+    \  --preconds: \n\
+    \    Description: Prints details about pre-conditions\n\
+    \                 Only works on files in which pre-conditions exist\n\
+    \    Parameters:  No Parameters:  - Prints % coverage of pre-conditions\n\
+    \                 \"coverage\"      - prints % coverage of pre-conditions with list\n                                   of pre-conditions not covered\n\
+	\                 \"test-code\"     - prints % coverage of pre-conditions with list\n                                   of pre-conditions not covered and test code\n\
+    \  --postconds: \n\
+    \    Description: Prints details about post-conditions\n\
+    \                 Only works on files in which post-conditions exist\n\
+    \    Parameters:  No Parameters:  - Prints % coverage of post-conditions\n\
+    \                 \"coverage\"      - prints % coverage of post-conditions with list\n                                   of post-conditions not covered\n\
+	\                 \"test-code\"     - prints % coverage of post-conditions with list\n                                   of post-conditions not covered and test code\n\n\
+    \  Example usage: \"hCode send-receive.yml --prettyprint pre-conditions --postconds test-code\"\n"
 
 data MyValue
   = MyObject [(String, MyValue)]
@@ -91,8 +91,11 @@ analyseFile = do
                     do 
                         let printString = "--------------------------------------------------------------\n" ++ "File being processed: " ++ show fileName ++ "\n--------------------------------------------------------------\n" ++ processArgs parsedArgs myVal
                         putStr $ inputErrorCheck printString
-        Nothing -> putStrLn "Error"
+        Nothing -> putStrLn "Error - not a yaml file"
     putStrLn " "
+
+-- newline at end
+-- double spaces rather than tab
 
 {-
 Description:
